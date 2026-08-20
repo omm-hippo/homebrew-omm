@@ -1,18 +1,35 @@
-# Omm-hippo Omm
+# OMM Homebrew Tap
 
-## How do I install these formulae?
+This is the official Homebrew tap for [Open Model Manager](https://github.com/omm-hippo/omm).
 
-`brew install omm-hippo/omm/<formula>`
+## Install
 
-Or `brew tap omm-hippo/omm` and then `brew install <formula>`.
-
-Or, in a `brew bundle` `Brewfile`:
-
-```ruby
-tap "omm-hippo/omm"
-brew "<formula>"
+```sh
+brew install omm-hippo/omm/omm
 ```
 
-## Documentation
+The package is installed as the `omm` command. Homebrew owns the Python
+environment and its dependencies; it does not modify your global Python
+installation.
 
-`brew help`, `man brew` or check [Homebrew's documentation](https://docs.brew.sh).
+## Update
+
+```sh
+brew upgrade omm
+```
+
+## Uninstall
+
+```sh
+brew uninstall omm
+```
+
+Downloaded models and OMM settings under `~/.omm` are preserved when the
+formula is removed.
+
+## Alternative two-step install
+
+```sh
+brew tap omm-hippo/omm
+brew install omm
+```
