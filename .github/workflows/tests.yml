@@ -52,6 +52,21 @@ jobs:
       - run: brew test-bot --only-formulae
         if: github.event_name == 'pull_request'
 
+      - name: Exercise Formula on Intel macOS
+        if: github.event_name == 'pull_request' && matrix.os == 'macos-15-intel'
+        env:
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: |
+          formula="$TAP_NAME/omm"
+          if brew list --formula "$formula" >/dev/null 2>&1
+          then
+            brew uninstall --formula --force "$formula"
+          fi
+          brew install --formula --build-from-source "$formula"
+          brew test --verbose "$formula"
+          "$(brew --prefix "$formula")/bin/omm" --version
+          "$(brew --prefix "$formula")/bin/omm" --help
+
       - name: Upload bottles as artifact
         if: always() && github.event_name == 'pull_request'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

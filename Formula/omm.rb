@@ -14,6 +14,7 @@ class Omm < Formula
 
   depends_on "pkgconf" => :build
   depends_on "rust" => :build
+  depends_on "libffi"
   depends_on "openssl@3"
   depends_on "python@3.14"
 
