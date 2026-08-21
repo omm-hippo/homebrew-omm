@@ -18,6 +18,13 @@ installation.
 brew upgrade omm
 ```
 
+Tagged OMM releases are published and verified on PyPI before the main
+repository notifies this Tap. The Tap validates that request, then uses
+`brew bump` to open a Formula update PR. Homebrew's upstream release cooldown
+is intentionally retained, so a newly published version may not become
+eligible until a later scheduled run. Formula changes still require the Tap's
+pull-request tests and are never pushed directly to `main` by the bump job.
+
 ## Uninstall
 
 ```sh
