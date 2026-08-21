@@ -3,8 +3,8 @@ class Omm < Formula
 
   desc "Package manager for local large language models"
   homepage "https://github.com/omm-hippo/omm"
-  url "https://files.pythonhosted.org/packages/31/c9/7f17d6ba428d90be228d8d848362fbc02d7bb18ec076eedd14f5fa5677cd/omm_model-0.2.129.tar.gz"
-  sha256 "ba21fb0f92bbbe4fa138fe78148424fbf75d606d2e5934153477582b53006101"
+  url "https://files.pythonhosted.org/packages/39/31/fe2f139e5014600aae8fa6fd53da1b4507fa66fb3ba8ebaa3ddb764c8e1c/omm_model-0.2.147.tar.gz"
+  sha256 "2db1f8ec80fef09b0f41b45c479b0d29b3d4ca992362cd268cfe8f9f4d8741fc"
   license "MIT"
 
   livecheck do
@@ -14,6 +14,7 @@ class Omm < Formula
 
   depends_on "pkgconf" => :build
   depends_on "rust" => :build
+  depends_on "libffi"
   depends_on "openssl@3"
   depends_on "python@3.14"
 
