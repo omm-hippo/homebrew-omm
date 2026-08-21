@@ -14,7 +14,21 @@ defaults:
     shell: bash -xeuo pipefail {0}
 
 jobs:
+  dispatch-validator:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the Tap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Test the PyPI dispatch validator
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+
   test-bot:
+    needs: dispatch-validator
     strategy:
       matrix:
         os: [ macos-26, macos-15-intel ]

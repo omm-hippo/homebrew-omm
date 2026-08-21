@@ -2,14 +2,20 @@
 name: brew bump
 
 on:
+  repository_dispatch:
+    types:
+      - pypi_release_verified
+  workflow_dispatch: {}
   push:
     branches:
       - main
     paths:
       - .github/workflows/autobump.yml
+      - .github/scripts/validate_pypi_dispatch.py
   schedule:
-    # Every day at 7:35 UTC
-    - cron: 35 7 * * *
+    # Retry every six hours. Homebrew's upstream release cooldown still decides
+    # when a newly published PyPI version becomes eligible for a Formula PR.
+    - cron: 35 */6 * * *
 
 permissions: {}
 
@@ -24,6 +30,22 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      - name: Check out the Tap validation code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate the verified-PyPI dispatch
+        if: github.event_name == 'repository_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_VERSION: ${{ github.event.client_payload.version }}
+          SOURCE_REPOSITORY: ${{ github.event.client_payload.source_repository }}
+          SOURCE_RUN_ID: ${{ github.event.client_payload.source_run_id }}
+          SOURCE_SHA: ${{ github.event.client_payload.source_sha }}
+          SOURCE_TAG: ${{ github.event.client_payload.tag }}
+        run: python3 .github/scripts/validate_pypi_dispatch.py
+
       - name: Set up Homebrew
         id: set-up-homebrew
         uses: Homebrew/actions/setup-homebrew@8f3d1ec8a696b3b9d9a6c3696b6c73033cab69e4 # 2026.08.14.1
