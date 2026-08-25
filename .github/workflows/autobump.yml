@@ -66,9 +66,10 @@ jobs:
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: brew bump --no-fork --open-pr --formulae --bump-synced --tap="$TAP_NAME"
 
-      - name: Verify the manual PR fallback
+      - name: Ensure a pull request exists for the bump branch
         if: steps.bump.outcome == 'failure'
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
           branch="$(git branch --show-current)"
@@ -80,22 +81,29 @@ jobs:
               ;;
           esac
 
-          head_sha="$(git rev-parse HEAD)"
           remote_sha="$(git ls-remote --heads origin "refs/heads/$branch" | awk '{print $1}')"
-          test -n "$remote_sha"
-          test "$remote_sha" = "$head_sha"
-          test "$(git rev-list --count origin/main..HEAD)" -eq 1
-          test "$(git diff --name-only origin/main...HEAD)" = "Formula/omm.rb"
-          brew audit --strict "$TAP_NAME/omm"
+          if [[ -z "$remote_sha" ]]; then
+            # Nothing on the remote yet: this attempt's local commit is the
+            # one to publish.
+            test "$(git rev-list --count origin/main..HEAD)" -eq 1
+            test "$(git diff --name-only origin/main...HEAD)" = "Formula/omm.rb"
+            brew audit --strict "$TAP_NAME/omm"
+            git push origin "HEAD:refs/heads/$branch"
+          else
+            # A prior run already pushed this branch (brew bump's --open-pr
+            # push succeeded but PR creation failed), so trying to push
+            # another freshly generated commit here would be a
+            # non-fast-forward reject. Reuse what's already on the remote.
+            git fetch origin "$branch"
+            git switch -C "$branch" "origin/$branch"
+            test "$(git rev-list --count origin/main.."$branch")" -eq 1
+            test "$(git diff --name-only origin/main..."$branch")" = "Formula/omm.rb"
+            brew audit --strict "$TAP_NAME/omm"
+          fi
 
-          pr_url="https://github.com/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
-          {
-            echo "## Manual pull request required"
-            echo
-            echo "GitHub Actions could not open the pull request, but the generated"
-            echo "formula commit was verified and pushed successfully."
-            echo
-            echo "- Branch: \`$branch\`"
-            echo "- Commit: \`$head_sha\`"
-            echo "- Open PR: $pr_url"
-          } >> "$GITHUB_STEP_SUMMARY"
+          if ! gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          then
+            gh pr create --repo "$GITHUB_REPOSITORY" --head "$branch" --base main \
+              --title "omm ${branch#bump-omm-}" \
+              --body "Automated Homebrew Formula bump. Opened by the autobump fallback after \`brew bump --open-pr\` pushed the commit but failed to open the pull request itself."
+          fi
