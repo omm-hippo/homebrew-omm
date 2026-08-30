@@ -33,6 +33,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_pull_requests_re_resolve_python_resources(self):
         workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text()
+        self.assertIn("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", workflow)
         self.assertIn("Verify Formula Python resources match public PyPI metadata", workflow)
         self.assertIn("brew update-python-resources --print-only", workflow)
         self.assertIn("--ignore-main-package-cooldown", workflow)
