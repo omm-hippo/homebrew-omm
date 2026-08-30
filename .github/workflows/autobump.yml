@@ -11,7 +11,8 @@ on:
       - main
     paths:
       - .github/workflows/autobump.yml
-      - .github/scripts/validate_pypi_dispatch.py
+      - .github/scripts/*.py
+      - tests/*.py
   schedule:
     # Retry every six hours. Homebrew's upstream release cooldown still decides
     # when a newly published PyPI version becomes eligible for a Formula PR.
@@ -58,6 +59,7 @@ jobs:
 
       - name: Bump formulae
         id: bump
+        if: github.event_name != 'repository_dispatch'
         continue-on-error: true
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,6 +67,69 @@ jobs:
           HOMEBREW_GIT_COMMITTER_EMAIL: ${{ steps.git_setup.outputs.email }}
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: brew bump --no-fork --open-pr --formulae --bump-synced --tap="$TAP_NAME"
+
+      - name: Prepare the verified PyPI Formula and Python resources
+        if: github.event_name == 'repository_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQUESTED_VERSION: ${{ github.event.client_payload.version }}
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: |
+          version="$REQUESTED_VERSION"
+          branch="bump-omm-$version"
+          updater="$RUNNER_TEMP/update_formula_from_pypi.py"
+          verifier="$RUNNER_TEMP/verify_python_resources.py"
+          generated_resources="$RUNNER_TEMP/omm-$version-resources.rb"
+          cp .github/scripts/update_formula_from_pypi.py "$updater"
+          cp .github/scripts/verify_python_resources.py "$verifier"
+
+          remote_sha="$(git ls-remote --heads origin "refs/heads/$branch" | awk '{print $1}')"
+          git switch -C "$branch" origin/main
+
+          python3 "$updater" --formula=Formula/omm.rb --version="$version"
+          brew update-python-resources --print-only \
+            --ignore-main-package-cooldown \
+            --version="$version" \
+            --package-name=omm-model \
+            "$TAP_NAME/omm" > "$generated_resources"
+          python3 "$verifier" --sync \
+            --formula=Formula/omm.rb \
+            --generated="$generated_resources"
+
+          changed_paths="$(git diff --name-only)"
+          if [[ -n "$changed_paths" ]]
+          then
+            test "$changed_paths" = "Formula/omm.rb"
+            brew audit --strict "$TAP_NAME/omm"
+            git add Formula/omm.rb
+            git commit -m "build: OMM $version Formula 및 Python 리소스 갱신"
+          else
+            echo "Formula already matches verified PyPI OMM $version; no PR needed"
+            exit 0
+          fi
+
+          test "$(git diff --name-only origin/main...HEAD)" = "Formula/omm.rb"
+          brew audit --strict "$TAP_NAME/omm"
+          if [[ -n "$remote_sha" ]]
+          then
+            git fetch origin "$branch"
+            test "$(git diff --name-only origin/main..."origin/$branch")" = "Formula/omm.rb"
+            if ! git diff --quiet HEAD "origin/$branch" -- Formula/omm.rb
+            then
+              echo "Existing $branch differs from the freshly verified Formula" >&2
+              exit 1
+            fi
+          else
+            git push origin "HEAD:refs/heads/$branch"
+          fi
+
+          if ! gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          then
+            gh pr create --repo "$GITHUB_REPOSITORY" --head "$branch" --base main \
+              --title "omm $version" \
+              --body "검증된 PyPI OMM $version에 맞춰 Formula source와 Python resource를 함께 갱신합니다. 주 패키지의 1일 cooldown만 우회하며 dependency cooldown과 PR 검증은 유지합니다."
+          fi
 
       - name: Ensure a pull request exists for the bump branch
         if: steps.bump.outcome == 'failure'
