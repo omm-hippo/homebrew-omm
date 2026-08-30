@@ -45,11 +45,6 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - name: Check out the Tap
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
       - name: Set up Homebrew
         id: set-up-homebrew
         uses: Homebrew/actions/setup-homebrew@8f3d1ec8a696b3b9d9a6c3696b6c73033cab69e4 # 2026.08.14.1
@@ -72,13 +67,14 @@ jobs:
         env:
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
+          tap_root="$(brew --repository "$TAP_NAME")"
           generated_resources="$(mktemp)"
           brew update-python-resources --print-only \
             --ignore-main-package-cooldown \
             --package-name=omm-model \
             "$TAP_NAME/omm" > "$generated_resources"
-          python3 .github/scripts/verify_python_resources.py \
-            --formula=Formula/omm.rb \
+          python3 "$tap_root/.github/scripts/verify_python_resources.py" \
+            --formula="$tap_root/Formula/omm.rb" \
             --generated="$generated_resources"
 
       - run: brew test-bot --only-tap-syntax
