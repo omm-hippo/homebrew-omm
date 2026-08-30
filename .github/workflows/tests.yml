@@ -62,6 +62,20 @@ jobs:
 
       - run: brew test-bot --only-setup
 
+      - name: Verify Formula Python resources match public PyPI metadata
+        if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
+        env:
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: |
+          generated_resources="$(mktemp)"
+          brew update-python-resources --print-only \
+            --ignore-main-package-cooldown \
+            --package-name=omm-model \
+            "$TAP_NAME/omm" > "$generated_resources"
+          python3 .github/scripts/verify_python_resources.py \
+            --formula=Formula/omm.rb \
+            --generated="$generated_resources"
+
       - run: brew test-bot --only-tap-syntax
       - run: brew test-bot --only-formulae
         if: github.event_name == 'pull_request'

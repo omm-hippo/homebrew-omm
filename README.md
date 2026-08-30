@@ -19,11 +19,17 @@ brew upgrade omm
 ```
 
 Tagged OMM releases are published and verified on PyPI before the main
-repository notifies this Tap. The Tap validates that request, then uses
-`brew bump` to open a Formula update PR. Homebrew's upstream release cooldown
-is intentionally retained, so a newly published version may not become
-eligible until a later scheduled run. Formula changes still require the Tap's
-pull-request tests and are never pushed directly to `main` by the bump job.
+repository notifies this Tap. The Tap validates the signed tag, exact source
+commit, and public PyPI source archive. A validated release dispatch opens a
+Formula update PR immediately: only the main package's release cooldown is
+bypassed, while dependency cooldowns remain active. Scheduled fallback runs
+retain Homebrew's normal release cooldown.
+
+Every bump updates the Formula source archive and regenerates its Python
+`resource` blocks from the same published `omm-model` version. Pull-request CI
+resolves the resources again and fails if a package, URL, or SHA-256 differs,
+so a version-only bump cannot be merged. Formula changes are never pushed
+directly to `main` by the bump job.
 
 ## Uninstall
 
