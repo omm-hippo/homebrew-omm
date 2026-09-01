@@ -34,7 +34,13 @@ jobs:
       - name: Check out the Tap validation code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
+          # The repository_dispatch path pushes the bump branch with a plain
+          # `git push origin` (see "Prepare the verified PyPI Formula"), which
+          # needs the checkout-persisted credential. Without it that push dies
+          # with "could not read Username for 'https://github.com'" and no bump
+          # PR is ever opened. The scheduled `brew bump` path is unaffected --
+          # it authenticates through HOMEBREW_GITHUB_API_TOKEN.
+          persist-credentials: true
 
       - name: Validate the verified-PyPI dispatch
         if: github.event_name == 'repository_dispatch'
