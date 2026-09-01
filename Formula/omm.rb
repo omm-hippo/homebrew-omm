@@ -3,8 +3,8 @@ class Omm < Formula
 
   desc "Package manager for local large language models"
   homepage "https://github.com/omm-hippo/omm"
-  url "https://files.pythonhosted.org/packages/f7/76/dc9e1d0a84dba42989e69d44b2ba5ac76b7de90b0e1987928a8107a0aaff/omm_model-0.3.33.tar.gz"
-  sha256 "96eb65748ff9d522ffcb120cb26250f15f45a16e2db6f2e24a15d3be2dc1005c"
+  url "https://files.pythonhosted.org/packages/a2/fe/c3f00ae07aa8e860700a854291a3f458956059cdf3ee7693da2d0bfe9e74/omm_model-0.3.41.tar.gz"
+  sha256 "f5a8d11fda889a98c4d0945cea3ffaaaa0ae54b326c9b8d6550bc9e57b5dc1f8"
   license "MIT"
 
   livecheck do

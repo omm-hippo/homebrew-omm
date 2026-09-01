@@ -30,6 +30,9 @@ jobs:
   test-bot:
     needs: dispatch-validator
     strategy:
+      # One platform's failure (e.g. a transient Homebrew-core bottle gap on
+      # the aging Intel macOS runner) should not mask the others' results.
+      fail-fast: false
       matrix:
         os: [ macos-26, macos-15-intel ]
         include:
