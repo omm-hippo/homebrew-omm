@@ -8,7 +8,7 @@ import json
 import re
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 
@@ -43,6 +43,17 @@ def fetch_release(version: str) -> dict[str, Any]:
     return payload
 
 
+def validate_source_url(url: str, version: str) -> None:
+    # PyPI archive paths are plain ASCII. Reject URL credentials, fragments,
+    # and Ruby string syntax rather than interpolating them into the Formula.
+    pattern = (
+        r"https://files\.pythonhosted\.org/(?:[A-Za-z0-9._-]+/)+"
+        + re.escape(f"omm_model-{version}.tar.gz")
+    )
+    if not re.fullmatch(pattern, url):
+        raise FormulaUpdateError(f"invalid source URL for OMM {version}: {url!r}")
+
+
 def select_source_archive(
     release: dict[str, Any], version: str
 ) -> tuple[str, str]:
@@ -75,11 +86,7 @@ def select_source_archive(
     sha256 = digests.get("sha256") if isinstance(digests, dict) else None
     if not isinstance(url, str):
         raise FormulaUpdateError("PyPI source archive has no URL")
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname != "files.pythonhosted.org":
-        raise FormulaUpdateError(f"unexpected PyPI source host: {url}")
-    if not parsed.path.endswith(f"/{expected_filename}"):
-        raise FormulaUpdateError(f"unexpected PyPI source path: {url}")
+    validate_source_url(url, version)
     if not isinstance(sha256, str) or not SHA256_PATTERN.fullmatch(sha256):
         raise FormulaUpdateError("PyPI source archive has an invalid SHA-256")
     return url, sha256
@@ -91,11 +98,7 @@ def update_formula_source(
     target_version = version_tuple(version)
     if not SHA256_PATTERN.fullmatch(sha256):
         raise FormulaUpdateError("invalid source SHA-256")
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname != "files.pythonhosted.org":
-        raise FormulaUpdateError(f"unexpected source host: {url}")
-    if not parsed.path.endswith(f"/omm_model-{version}.tar.gz"):
-        raise FormulaUpdateError(f"source URL does not match version {version}: {url}")
+    validate_source_url(url, version)
 
     matches = list(SOURCE_PATTERN.finditer(contents))
     if len(matches) != 1:
