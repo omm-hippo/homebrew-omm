@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -43,6 +46,52 @@ class VerifyPythonResourcesTests(unittest.TestCase):
             verifier.ResourceVerificationError, "duplicate resource: click"
         ):
             verifier.parse_resources(block("click", "8.5.0") * 2)
+
+    def test_rejects_an_unparsed_resource_in_either_input(self):
+        valid = block("click", "8.5.0")
+        malformed = block("filelock", "3.32.4").replace('sha256 "', 'sha256 "invalid-')
+        for actual, expected in ((valid + malformed, valid), (valid, valid + malformed)):
+            with self.subTest(actual=actual, expected=expected):
+                with self.assertRaisesRegex(
+                    verifier.ResourceVerificationError, "unsupported resource block"
+                ):
+                    verifier.verify_resources(actual, expected)
+
+    def test_rejects_an_alternative_ruby_resource_syntax(self):
+        contents = block("click", "8.5.0") + block("filelock", "3.32.4").replace(
+            'resource "filelock"', "resource 'filelock'"
+        )
+        with self.assertRaisesRegex(
+            verifier.ResourceVerificationError, "unsupported resource block"
+        ):
+            verifier.parse_resources(contents)
+
+    def test_rejects_extra_text_in_generated_output(self):
+        valid = block("click", "8.5.0")
+        for extra in ('  # RESOURCE-ERROR: unresolved package\n', '  def install\n  end\n'):
+            with self.subTest(extra=extra):
+                with self.assertRaisesRegex(
+                    verifier.ResourceVerificationError, "unsupported text"
+                ):
+                    verifier.replace_resources(valid, valid + extra)
+
+    def test_sync_failure_preserves_the_formula_file(self):
+        formula = block("click", "8.4.2")
+        generated = block("click", "8.5.0") + '  # RESOURCE-ERROR: unresolved package\n'
+        with tempfile.TemporaryDirectory() as directory:
+            formula_path = Path(directory) / "omm.rb"
+            generated_path = Path(directory) / "resources.rb"
+            formula_path.write_text(formula, encoding="utf-8")
+            generated_path.write_text(generated, encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(ROOT / ".github/scripts/verify_python_resources.py"),
+                 "--sync", "--formula", str(formula_path), "--generated", str(generated_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(formula_path.read_text(encoding="utf-8"), formula)
 
     def test_replaces_only_the_formula_resource_region(self):
         formula = (

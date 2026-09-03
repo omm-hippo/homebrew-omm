@@ -34,13 +34,7 @@ jobs:
       - name: Check out the Tap validation code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The repository_dispatch path pushes the bump branch with a plain
-          # `git push origin` (see "Prepare the verified PyPI Formula"), which
-          # needs the checkout-persisted credential. Without it that push dies
-          # with "could not read Username for 'https://github.com'" and no bump
-          # PR is ever opened. The scheduled `brew bump` path is unaffected --
-          # it authenticates through HOMEBREW_GITHUB_API_TOKEN.
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Validate the verified-PyPI dispatch
         if: github.event_name == 'repository_dispatch'
@@ -58,6 +52,9 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@8f3d1ec8a696b3b9d9a6c3696b6c73033cab69e4 # 2026.08.14.1
         with:
           core: true
+          # setup-homebrew replaces the initial checkout, including .git.
+          # Authenticate that Tap checkout for the later plain git push.
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up git
         id: git_setup
@@ -72,6 +69,7 @@ jobs:
           HOMEBREW_GIT_COMMITTER_NAME: ${{ steps.git_setup.outputs.name }}
           HOMEBREW_GIT_COMMITTER_EMAIL: ${{ steps.git_setup.outputs.email }}
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        # bump-formula-pr regenerates Python resources before creating its commit.
         run: brew bump --no-fork --open-pr --formulae --bump-synced --tap="$TAP_NAME"
 
       - name: Prepare the verified PyPI Formula and Python resources
@@ -107,7 +105,6 @@ jobs:
           if [[ -n "$changed_paths" ]]
           then
             test "$changed_paths" = "Formula/omm.rb"
-            brew audit --strict "$TAP_NAME/omm"
             git add Formula/omm.rb
             git commit -m "build: OMM $version Formula 및 Python 리소스 갱신"
           else
@@ -153,23 +150,18 @@ jobs:
           esac
 
           remote_sha="$(git ls-remote --heads origin "refs/heads/$branch" | awk '{print $1}')"
-          if [[ -z "$remote_sha" ]]; then
-            # Nothing on the remote yet: this attempt's local commit is the
-            # one to publish.
-            test "$(git rev-list --count origin/main..HEAD)" -eq 1
-            test "$(git diff --name-only origin/main...HEAD)" = "Formula/omm.rb"
-            brew audit --strict "$TAP_NAME/omm"
-            git push origin "HEAD:refs/heads/$branch"
-          else
-            # A prior run already pushed this branch (brew bump's --open-pr
-            # push succeeded but PR creation failed), so trying to push
-            # another freshly generated commit here would be a
-            # non-fast-forward reject. Reuse what's already on the remote.
+          if [[ -n "$remote_sha" ]]; then
+            # Reuse a prior push when only PR creation failed. Validate that
+            # remote commit below before opening its PR.
             git fetch origin "$branch"
             git switch -C "$branch" "origin/$branch"
-            test "$(git rev-list --count origin/main.."$branch")" -eq 1
-            test "$(git diff --name-only origin/main..."$branch")" = "Formula/omm.rb"
-            brew audit --strict "$TAP_NAME/omm"
+          fi
+
+          test "$(git rev-list --count origin/main..HEAD)" -eq 1
+          test "$(git diff --name-only origin/main...HEAD)" = "Formula/omm.rb"
+          brew audit --strict "$TAP_NAME/omm"
+          if [[ -z "$remote_sha" ]]; then
+            git push origin "HEAD:refs/heads/$branch"
           fi
 
           if ! gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1

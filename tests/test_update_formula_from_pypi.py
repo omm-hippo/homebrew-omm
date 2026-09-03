@@ -68,6 +68,25 @@ end
         ):
             updater.select_source_archive(release, "1.2.3")
 
+    def test_rejects_urls_that_cannot_be_safely_written_as_ruby(self):
+        urls = [
+            'https://files.pythonhosted.org/packages/"/omm_model-1.2.3.tar.gz',
+            "https://files.pythonhosted.org/packages/\n/omm_model-1.2.3.tar.gz",
+            r"https://files.pythonhosted.org/packages/\n/omm_model-1.2.3.tar.gz",
+            "https://files.pythonhosted.org/packages/#{code}/omm_model-1.2.3.tar.gz",
+            "https://user@files.pythonhosted.org/packages/omm_model-1.2.3.tar.gz",
+            "https://files.pythonhosted.org:443/packages/omm_model-1.2.3.tar.gz",
+            "https://files.pythonhosted.org/packages/omm_model-1.2.3.tar.gz?download=1",
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                release = self.release()
+                release["urls"][0]["url"] = url
+                with self.assertRaises(updater.FormulaUpdateError):
+                    updater.select_source_archive(release, "1.2.3")
+                with self.assertRaises(updater.FormulaUpdateError):
+                    updater.update_formula_source(self.formula(), "1.2.3", url, "a" * 64)
+
     def test_updates_only_the_top_level_source_block(self):
         updated = updater.update_formula_source(
             self.formula(),

@@ -10,8 +10,8 @@ from typing import NamedTuple
 
 
 RESOURCE_PATTERN = re.compile(
-    r'^  resource "(?P<name>[^"]+)" do\n'
-    r'    url "(?P<url>https://[^"\n]+)"\n'
+    r'^  resource "(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)" do\n'
+    r'    url "(?P<url>https://[^\s"\\#]+)"\n'
     r'    sha256 "(?P<sha256>[0-9a-f]{64})"\n'
     r"  end$",
     re.MULTILINE,
@@ -27,7 +27,12 @@ class Resource(NamedTuple):
     sha256: str
 
 
-def parse_resources(contents: str) -> dict[str, Resource]:
+def parse_resources(contents: str, *, standalone: bool = False) -> dict[str, Resource]:
+    remainder = RESOURCE_PATTERN.sub("", contents)
+    if re.search(r"^\s*resource\b", remainder, re.MULTILINE):
+        raise ResourceVerificationError("unsupported resource block")
+    if standalone and remainder.strip():
+        raise ResourceVerificationError("generated resource output contains unsupported text")
     resources: dict[str, Resource] = {}
     for match in RESOURCE_PATTERN.finditer(contents):
         name = match.group("name")
@@ -43,7 +48,7 @@ def parse_resources(contents: str) -> dict[str, Resource]:
 
 def verify_resources(formula: str, generated: str) -> None:
     actual = parse_resources(formula)
-    expected = parse_resources(generated)
+    expected = parse_resources(generated, standalone=True)
     if actual == expected:
         return
 
@@ -65,15 +70,13 @@ def verify_resources(formula: str, generated: str) -> None:
 
 
 def replace_resources(formula: str, generated: str) -> str:
+    parse_resources(formula)
+    parse_resources(generated, standalone=True)
     actual_matches = list(RESOURCE_PATTERN.finditer(formula))
-    if not actual_matches:
-        raise ResourceVerificationError("Formula has no Python resources to replace")
-    parse_resources(generated)
     start = actual_matches[0].start()
     end = actual_matches[-1].end()
     between = formula[start:end]
-    parsed_between = "\n\n".join(match.group(0) for match in actual_matches)
-    if between.strip() != parsed_between.strip():
+    if RESOURCE_PATTERN.sub("", between).strip():
         raise ResourceVerificationError(
             "Formula resource region contains unsupported text"
         )
@@ -94,8 +97,9 @@ def main() -> int:
     generated = args.generated.read_text(encoding="utf-8")
     if args.sync:
         formula = replace_resources(formula, generated)
-        args.formula.write_text(formula, encoding="utf-8")
     verify_resources(formula, generated)
+    if args.sync:
+        args.formula.write_text(formula, encoding="utf-8")
     print("Formula Python resources match Homebrew's PyPI resolution")
     return 0
 
