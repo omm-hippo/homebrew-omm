@@ -65,6 +65,34 @@ jobs:
 
       - run: brew test-bot --only-setup
 
+      - name: Prepare portable ShellCheck on Intel macOS
+        if: matrix.os == 'macos-15-intel'
+        run: |
+          # Homebrew accepts a matching executable on PATH. The official
+          # portable build avoids installing GMP just to lint workflows.
+          tools_dir="$RUNNER_TEMP/omm-shellcheck"
+          archive="$tools_dir/shellcheck.tar.xz"
+          mkdir -p "$tools_dir"
+          curl --fail --silent --show-error --location --max-redirs 5 \
+            --connect-timeout 15 --max-time 120 \
+            --output "$archive" \
+            https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.x86_64.tar.xz
+          printf '%s  %s\n' \
+            3c89db4edcab7cf1c27bff178882e0f6f27f7afdf54e859fa041fca10febe4c6 \
+            "$archive" | shasum -a 256 --check
+          tar -xf "$archive" -C "$tools_dir"
+          "$tools_dir/shellcheck-v0.11.0/shellcheck" --version
+          PATH="$tools_dir/shellcheck-v0.11.0:$PATH" brew ruby -e '
+            require "formula"
+            require "style"
+            expected = Pathname(ARGV.fetch(0))
+            abort "Update the pinned portable ShellCheck version" unless Formula["shellcheck"].version.to_s == "0.11.0"
+            abort "Portable ShellCheck is not first on PATH" unless which("shellcheck", ORIGINAL_PATHS) == expected
+            abort "Homebrew selected another ShellCheck" unless Homebrew::Style.shellcheck == expected
+            puts "Homebrew style will use #{expected}"
+          ' "$tools_dir/shellcheck-v0.11.0/shellcheck"
+          echo "$tools_dir/shellcheck-v0.11.0" >> "$GITHUB_PATH"
+
       - name: Verify Formula Python resources match public PyPI metadata
         if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
         env:
