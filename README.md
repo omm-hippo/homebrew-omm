@@ -31,7 +31,15 @@ resolves the resources again and fails if a package, URL, or SHA-256 differs,
 so a version-only bump cannot be merged. Formula changes are never pushed
 directly to `main` by the bump job.
 
-For bump PRs created with the workflow's `GITHUB_TOKEN`, a maintainer must select
+If the repository policy prevents `GITHUB_TOKEN` from creating pull requests,
+configure an Actions secret named `HOMEBREW_AUTOBUMP_TOKEN`. Use a fine-grained
+token scoped only to `omm-hippo/homebrew-omm`, with **Contents: read and write**
+and **Pull requests: read and write**. The autobump workflow uses this token for
+the Tap checkout, Formula branch push, and PR creation. It falls back to
+`GITHUB_TOKEN` when the secret is absent. A custom token avoids enabling the
+broader **Allow GitHub Actions to create and approve pull requests** setting.
+
+For bump PRs created with the workflow's `GITHUB_TOKEN`, a maintainer may need to select
 **Approve workflows to run** in the PR before CI starts. This is GitHub's
 [workflow approval behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow),
 separate from reviewing and merging the Formula update.
