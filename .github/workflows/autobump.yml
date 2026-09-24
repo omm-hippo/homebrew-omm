@@ -54,7 +54,8 @@ jobs:
           core: true
           # setup-homebrew replaces the initial checkout, including .git.
           # Authenticate that Tap checkout for the later plain git push.
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # A scoped secret can create the PR when repository policy blocks GITHUB_TOKEN.
+          token: ${{ secrets.HOMEBREW_AUTOBUMP_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Set up git
         id: git_setup
@@ -65,7 +66,8 @@ jobs:
         if: github.event_name != 'repository_dispatch'
         continue-on-error: true
         env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_AUTOBUMP_TOKEN || secrets.GITHUB_TOKEN }}
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_AUTOBUMP_TOKEN || secrets.GITHUB_TOKEN }}
           HOMEBREW_GIT_COMMITTER_NAME: ${{ steps.git_setup.outputs.name }}
           HOMEBREW_GIT_COMMITTER_EMAIL: ${{ steps.git_setup.outputs.email }}
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
@@ -75,8 +77,8 @@ jobs:
       - name: Prepare the verified PyPI Formula and Python resources
         if: github.event_name == 'repository_dispatch'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_AUTOBUMP_TOKEN || secrets.GITHUB_TOKEN }}
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_AUTOBUMP_TOKEN || secrets.GITHUB_TOKEN }}
           REQUESTED_VERSION: ${{ github.event.client_payload.version }}
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
@@ -139,7 +141,7 @@ jobs:
       - name: Ensure a pull request exists for the bump branch
         if: steps.bump.outcome == 'failure'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_AUTOBUMP_TOKEN || secrets.GITHUB_TOKEN }}
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
           branch="$(git branch --show-current)"

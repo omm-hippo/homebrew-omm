@@ -129,7 +129,10 @@ esac
         )[0]
         # setup-homebrew replaces the initial actions/checkout .git directory.
         # Its token input must authenticate the resulting Tap checkout.
-        self.assertIn("token: ${{ secrets.GITHUB_TOKEN }}", setup)
+        self.assertIn(
+            "token: ${{ secrets.HOMEBREW_AUTOBUMP_TOKEN || secrets.GITHUB_TOKEN }}",
+            setup,
+        )
         self.assertIn("persist-credentials: false", workflow)
 
     def test_verified_dispatch_bumps_source_and_resources_together(self):
