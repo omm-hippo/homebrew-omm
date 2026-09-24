@@ -127,11 +127,13 @@ jobs:
             git push origin "HEAD:refs/heads/$branch"
           fi
 
-          if ! gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          open_prs="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" \
+            --base main --state open --json number --jq length)"
+          if [[ "$open_prs" -eq 0 ]]
           then
             gh pr create --repo "$GITHUB_REPOSITORY" --head "$branch" --base main \
               --title "omm $version" \
-              --body "검증된 PyPI OMM $version에 맞춰 Formula source와 Python resource를 함께 갱신합니다. 주 패키지의 1일 cooldown만 우회하며 dependency cooldown과 PR 검증은 유지합니다."
+              --body "검증된 PyPI OMM ${version}에 맞춰 Formula source와 Python resource를 함께 갱신합니다. 주 패키지의 1일 cooldown만 우회하며 dependency cooldown과 PR 검증은 유지합니다."
           fi
 
       - name: Ensure a pull request exists for the bump branch
@@ -149,6 +151,11 @@ jobs:
               ;;
           esac
 
+          # Audit the same tracked contents that will be pushed. A failed brew
+          # bump can leave staged or unstaged edits after its last commit.
+          git diff --quiet
+          git diff --cached --quiet
+
           remote_sha="$(git ls-remote --heads origin "refs/heads/$branch" | awk '{print $1}')"
           if [[ -n "$remote_sha" ]]; then
             # Reuse a prior push when only PR creation failed. Validate that
@@ -164,9 +171,11 @@ jobs:
             git push origin "HEAD:refs/heads/$branch"
           fi
 
-          if ! gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          open_prs="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" \
+            --base main --state open --json number --jq length)"
+          if [[ "$open_prs" -eq 0 ]]
           then
             gh pr create --repo "$GITHUB_REPOSITORY" --head "$branch" --base main \
               --title "omm ${branch#bump-omm-}" \
-              --body "Automated Homebrew Formula bump. Opened by the autobump fallback after \`brew bump --open-pr\` pushed the commit but failed to open the pull request itself."
+              --body "Homebrew Formula 갱신 PR입니다. brew bump 실패 후 Formula 변경만 포함한 커밋과 brew audit 통과를 확인하여 복구 경로에서 생성했습니다."
           fi

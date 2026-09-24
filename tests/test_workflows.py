@@ -28,6 +28,8 @@ case "$*" in
   'fetch origin bump-omm-1.2.3') echo fetch >> "$COMMAND_LOG" ;;
   'switch -C bump-omm-1.2.3 origin/bump-omm-1.2.3') echo switch >> "$COMMAND_LOG" ;;
   'rev-list --count origin/main..HEAD') echo 1 ;;
+  'diff --quiet') exit "$WORKTREE_STATUS" ;;
+  'diff --cached --quiet') exit "$INDEX_STATUS" ;;
   'diff --name-only origin/main...HEAD') echo "$CHANGED_FILE" ;;
   'push origin HEAD:refs/heads/bump-omm-1.2.3') echo push >> "$COMMAND_LOG" ;;
   *) echo "unexpected git arguments: $*" >&2; exit 90 ;;
@@ -40,7 +42,12 @@ exit "$AUDIT_STATUS"
 ''',
                 "gh": '''#!/bin/sh
 case "$1 $2" in
-  'pr view') exit 1 ;;
+  'pr view') test "$PR_STATE" != NONE ;;
+  'pr list')
+    test "$PR_LIST_STATUS" = 0 || exit "$PR_LIST_STATUS"
+    case "$*" in *'--state open'*) ;; *) exit 90 ;; esac
+    case "$*" in *'--base main'*) ;; *) exit 90 ;; esac
+    if [ "$PR_STATE" = OPEN ]; then echo 1; else echo 0; fi ;;
   'pr create') echo create >> "$COMMAND_LOG" ;;
   *) exit 90 ;;
 esac
@@ -57,6 +64,10 @@ esac
                 "HAS_REMOTE": "0",
                 "AUDIT_STATUS": "0",
                 "CHANGED_FILE": "Formula/omm.rb",
+                "WORKTREE_STATUS": "0",
+                "INDEX_STATUS": "0",
+                "PR_STATE": "NONE",
+                "PR_LIST_STATUS": "0",
                 "TAP_NAME": "omm-hippo/omm",
                 "GITHUB_REPOSITORY": "omm-hippo/homebrew-omm",
                 **overrides,
@@ -88,6 +99,28 @@ esac
         result, commands = self.run_fallback(HAS_REMOTE="1", CHANGED_FILE="README.md")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(commands, ["fetch", "switch"])
+
+    def test_fallback_rejects_uncommitted_formula_before_audit_or_push(self):
+        for overrides in ({"WORKTREE_STATUS": "1"}, {"INDEX_STATUS": "1"}):
+            with self.subTest(overrides=overrides):
+                result, commands = self.run_fallback(**overrides)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(commands, [])
+
+    def test_fallback_does_not_treat_a_closed_pr_as_an_open_pr(self):
+        result, commands = self.run_fallback(PR_STATE="CLOSED")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(commands, ["audit", "push", "create"])
+
+    def test_fallback_keeps_an_existing_open_pr(self):
+        result, commands = self.run_fallback(PR_STATE="OPEN")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(commands, ["audit", "push"])
+
+    def test_fallback_stops_when_pr_lookup_fails(self):
+        result, commands = self.run_fallback(PR_LIST_STATUS="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("create", commands)
 
     def test_homebrew_receives_the_push_credential_after_replacing_checkout(self):
         workflow = (ROOT / ".github" / "workflows" / "autobump.yml").read_text()
