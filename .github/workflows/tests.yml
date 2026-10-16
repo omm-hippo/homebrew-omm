@@ -104,7 +104,9 @@ jobs:
             --ignore-main-package-cooldown \
             --package-name=omm-model \
             "$TAP_NAME/omm" > "$generated_resources"
-          python3 "$tap_root/.github/scripts/verify_python_resources.py" \
+          # The brew container does not put `python3` on PATH (exit 127); call the
+          # unversioned `python` that Homebrew's Python keeps in libexec/bin.
+          "$(brew --prefix python3)/libexec/bin/python" "$tap_root/.github/scripts/verify_python_resources.py" \
             --formula="$tap_root/Formula/omm.rb" \
             --generated="$generated_resources"
 
