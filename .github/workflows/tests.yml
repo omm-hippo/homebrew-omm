@@ -40,6 +40,9 @@ jobs:
             container:
               image: ghcr.io/homebrew/brew:main
               options: --privileged
+    # Slowest green run so far took 55 min (Intel); a hung `brew install
+    # --build-from-source` otherwise holds the runner for the 6 h default.
+    timeout-minutes: 90
     runs-on: ${{ matrix.os }}
     container: ${{ fromJSON(toJSON(matrix.container)) }} # zizmor: ignore[unpinned-images]
     permissions:
