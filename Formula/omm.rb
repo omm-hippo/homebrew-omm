@@ -18,6 +18,12 @@ class Omm < Formula
   depends_on "openssl@3"
   depends_on "python@3.14"
 
+  # Homebrew-core ships no Intel macOS bottles for rust/python/openssl, so an
+  # Intel Mac install would compile the whole toolchain. Linux is unaffected.
+  on_macos do
+    depends_on arch: :arm64
+  end
+
   pypi_packages package_name: "omm-model"
 
   resource "annotated-doc" do
