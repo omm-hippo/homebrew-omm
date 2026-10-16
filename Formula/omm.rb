@@ -3,8 +3,8 @@ class Omm < Formula
 
   desc "Package manager for local large language models"
   homepage "https://github.com/omm-hippo/omm"
-  url "https://files.pythonhosted.org/packages/a2/fe/c3f00ae07aa8e860700a854291a3f458956059cdf3ee7693da2d0bfe9e74/omm_model-0.3.41.tar.gz"
-  sha256 "f5a8d11fda889a98c4d0945cea3ffaaaa0ae54b326c9b8d6550bc9e57b5dc1f8"
+  url "https://files.pythonhosted.org/packages/16/d4/7c4d512fbd9372ec6d1b53d0ff6f1373e4920d2f842703843387621eef00/omm_model-0.3.105.tar.gz"
+  sha256 "a230b62345f9847ec4ea9978c8f959c69c1ee61ae0d83b89b3dff8318f7ea587"
   license "MIT"
 
   livecheck do
@@ -19,6 +19,10 @@ class Omm < Formula
   depends_on "python@3.14"
 
   pypi_packages package_name: "omm-model"
+
+  # Excluded from the resource list below - marker not satisfied for
+  # python@3.14 (Homebrew's declared interpreter here):
+  #   cryptography==48.0.0; sys_platform == "darwin" and platform_machine == "x86_64"
 
   resource "annotated-doc" do
     url "https://files.pythonhosted.org/packages/5a/8e/38aa427ed5402449e226975b649c5dc73ccadfefeb95e6aecb8f8ea4b6b6/annotated_doc-0.0.5.tar.gz"
@@ -126,8 +130,8 @@ class Omm < Formula
   end
 
   resource "urllib3" do
-    url "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz"
-    sha256 "231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c"
+    url "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz"
+    sha256 "63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63"
   end
 
   resource "wcwidth" do
