@@ -30,11 +30,13 @@ jobs:
   test-bot:
     needs: dispatch-validator
     strategy:
-      # One platform's failure (e.g. a transient Homebrew-core bottle gap on
-      # the aging Intel macOS runner) should not mask the others' results.
+      # One platform's failure should not mask the others' results.
+      # No Intel macOS job: Homebrew-core ships no Intel bottles for rust,
+      # python@3.14 or openssl@3 (formulae.brew.sh), so `--build-from-source`
+      # compiles the whole toolchain and runs for hours.
       fail-fast: false
       matrix:
-        os: [ macos-26, macos-15-intel ]
+        os: [ macos-26 ]
         include:
           - os: ubuntu-latest
             container:
@@ -65,34 +67,6 @@ jobs:
 
       - run: brew test-bot --only-setup
 
-      - name: Prepare portable ShellCheck on Intel macOS
-        if: matrix.os == 'macos-15-intel'
-        run: |
-          # Homebrew accepts a matching executable on PATH. The official
-          # portable build avoids installing GMP just to lint workflows.
-          tools_dir="$RUNNER_TEMP/omm-shellcheck"
-          archive="$tools_dir/shellcheck.tar.xz"
-          mkdir -p "$tools_dir"
-          curl --fail --silent --show-error --location --max-redirs 5 \
-            --connect-timeout 15 --max-time 120 \
-            --output "$archive" \
-            https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.x86_64.tar.xz
-          printf '%s  %s\n' \
-            3c89db4edcab7cf1c27bff178882e0f6f27f7afdf54e859fa041fca10febe4c6 \
-            "$archive" | shasum -a 256 --check
-          tar -xf "$archive" -C "$tools_dir"
-          "$tools_dir/shellcheck-v0.11.0/shellcheck" --version
-          PATH="$tools_dir/shellcheck-v0.11.0:$PATH" brew ruby -e '
-            require "formula"
-            require "style"
-            expected = Pathname(ARGV.fetch(0))
-            abort "Update the pinned portable ShellCheck version" unless Formula["shellcheck"].version.to_s == "0.11.0"
-            abort "Portable ShellCheck is not first on PATH" unless which("shellcheck", ORIGINAL_PATHS) == expected
-            abort "Homebrew selected another ShellCheck" unless Homebrew::Style.shellcheck == expected
-            puts "Homebrew style will use #{expected}"
-          ' "$tools_dir/shellcheck-v0.11.0/shellcheck"
-          echo "$tools_dir/shellcheck-v0.11.0" >> "$GITHUB_PATH"
-
       - name: Verify Formula Python resources match public PyPI metadata
         if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
         env:
@@ -116,21 +90,6 @@ jobs:
       - run: brew test-bot --only-tap-syntax
       - run: brew test-bot --only-formulae
         if: github.event_name == 'pull_request'
-
-      - name: Exercise Formula on Intel macOS
-        if: github.event_name == 'pull_request' && matrix.os == 'macos-15-intel'
-        env:
-          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
-        run: |
-          formula="$TAP_NAME/omm"
-          if brew list --formula "$formula" >/dev/null 2>&1
-          then
-            brew uninstall --formula --force "$formula"
-          fi
-          brew install --formula --build-from-source "$formula"
-          brew test --verbose "$formula"
-          "$(brew --prefix "$formula")/bin/omm" --version
-          "$(brew --prefix "$formula")/bin/omm" --help
 
       - name: Upload bottles as artifact
         if: always() && github.event_name == 'pull_request'
