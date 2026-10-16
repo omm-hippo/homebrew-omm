@@ -104,9 +104,12 @@ jobs:
             --ignore-main-package-cooldown \
             --package-name=omm-model \
             "$TAP_NAME/omm" > "$generated_resources"
-          # The brew container does not put `python3` on PATH (exit 127); call the
-          # unversioned `python` that Homebrew's Python keeps in libexec/bin.
-          "$(brew --prefix python3)/libexec/bin/python" "$tap_root/.github/scripts/verify_python_resources.py" \
+          # The brew container does not put `python3` on PATH (exit 127), and the
+          # `python3` alias may point at a newer Python than the one the
+          # Formula (and `update-python-resources`) installs. Use the Formula's
+          # own Python, via the unversioned `python` in its libexec/bin.
+          python_formula="$(sed -nE 's/^[[:space:]]*depends_on "(python@[0-9.]+)".*/\1/p' "$tap_root/Formula/omm.rb" | head -n 1)"
+          "$(brew --prefix "$python_formula")/libexec/bin/python" "$tap_root/.github/scripts/verify_python_resources.py" \
             --formula="$tap_root/Formula/omm.rb" \
             --generated="$generated_resources"
 
