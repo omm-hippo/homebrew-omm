@@ -26,10 +26,14 @@ the main package's release cooldown is bypassed. Scheduled fallback runs retain
 Homebrew's normal release cooldown.
 
 Every bump updates the Formula source archive and regenerates its Python
-`resource` blocks from the same published `omm-model` version. Pull-request CI
-resolves the resources again and fails if a package, URL, or SHA-256 differs,
-so a version-only bump cannot be merged. Formula changes are never pushed
-directly to `main` by the bump job.
+`resource` blocks. Dependency revisions are reviewed against the frozen runtime
+graph from an immutable OMM commit pinned in the tests workflow. CI resolves
+every pinned sdist against PyPI and checks the published main archive as well as
+all resource names, URLs and SHA-256 hashes. It does not compare frozen pins to
+a second floating resolver that may select a different optional/platform graph.
+When changing the intended graph, update that reviewed source pin too; a generated
+version bump does not authorize dependency drift. Formula changes are never
+pushed directly to `main` by the bump job.
 
 If the repository policy prevents `GITHUB_TOKEN` from creating pull requests,
 configure an Actions secret named `HOMEBREW_AUTOBUMP_TOKEN`. Use a fine-grained

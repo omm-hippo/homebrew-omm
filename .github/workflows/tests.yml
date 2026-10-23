@@ -67,25 +67,29 @@ jobs:
 
       - run: brew test-bot --only-setup
 
-      - name: Verify Formula Python resources match public PyPI metadata
+      # Immutable, reviewed frozen graph from omm-hippo/omm PR #509.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
+        with:
+          repository: omm-hippo/omm
+          ref: 1d18743ad88be77399d7b5ad7b9c80cb90d877f5
+          path: .runtime-graph
+          persist-credentials: false
+      - name: Verify Formula against the pinned OMM runtime graph and PyPI hashes
         if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
         env:
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
           tap_root="$(brew --repository "$TAP_NAME")"
-          generated_resources="$(mktemp)"
-          brew update-python-resources --print-only \
-            --ignore-main-package-cooldown \
-            --package-name=omm-model \
-            "$TAP_NAME/omm" > "$generated_resources"
-          # The brew container does not put `python3` on PATH (exit 127), and the
-          # `python3` alias may point at a newer Python than the one the
-          # Formula (and `update-python-resources`) installs. Use the Formula's
-          # own Python, via the unversioned `python` in its libexec/bin.
           python_formula="$(sed -nE 's/^[[:space:]]*depends_on "(python@[0-9.]+)".*/\1/p' "$tap_root/Formula/omm.rb" | head -n 1)"
-          "$(brew --prefix "$python_formula")/libexec/bin/python" "$tap_root/.github/scripts/verify_python_resources.py" \
-            --formula="$tap_root/Formula/omm.rb" \
-            --generated="$generated_resources"
+          brew install "$python_formula"
+          "$(brew --prefix "$python_formula")/libexec/bin/python" -m venv "$RUNNER_TEMP/omm-graph-check"
+          graph_python="$RUNNER_TEMP/omm-graph-check/bin/python"
+          "$graph_python" -m pip install --disable-pip-version-check packaging==26.3
+          formula_version="$("$graph_python" -c 'import re,sys; print(re.search(r"omm_model-([0-9.]+)\.tar\.gz",open(sys.argv[1]).read()).group(1))' "$tap_root/Formula/omm.rb")"
+          "$graph_python" "$GITHUB_WORKSPACE/.runtime-graph/scripts/homebrew_formula.py" check \
+            --formula "$tap_root/Formula/omm.rb" --version "$formula_version" \
+            --requirements "$GITHUB_WORKSPACE/.runtime-graph/requirements-npm-binary.txt"
 
       - run: brew test-bot --only-tap-syntax
       - run: brew test-bot --only-formulae
