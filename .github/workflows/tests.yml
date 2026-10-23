@@ -70,6 +70,10 @@ jobs:
       # Immutable, reviewed frozen graph from omm-hippo/omm PR #509.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
+        # setup-homebrew has a global Authorization header. Isolate this
+        # checkout's auth config so checkout cannot send a duplicate header.
+        env:
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/runtime-graph.gitconfig
         with:
           repository: omm-hippo/omm
           ref: 1d18743ad88be77399d7b5ad7b9c80cb90d877f5
