@@ -162,7 +162,7 @@ esac
         workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text()
         self.assertIn("Verify Formula against the pinned OMM runtime graph and PyPI hashes", workflow)
         self.assertIn('tap_root="$(brew --repository "$TAP_NAME")"', workflow)
-        self.assertIn("ref: 1d18743ad88be77399d7b5ad7b9c80cb90d877f5", workflow)
+        self.assertIn("ref: 2f79dfa144299abcbe95d37daaf45e79072f8e1f", workflow)
         self.assertIn("GIT_CONFIG_GLOBAL: ${{ runner.temp }}/runtime-graph.gitconfig", workflow)
         self.assertIn('homebrew_formula.py" check', workflow)
         self.assertIn('--requirements "$GITHUB_WORKSPACE/.runtime-graph/requirements-npm-binary.txt"', workflow)

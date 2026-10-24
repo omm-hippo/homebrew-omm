@@ -67,7 +67,7 @@ jobs:
 
       - run: brew test-bot --only-setup
 
-      # Immutable, reviewed frozen graph from omm-hippo/omm PR #509.
+      # Immutable, reviewed frozen graph from omm-hippo/omm PR #512.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
         # setup-homebrew has a global Authorization header. Isolate this
@@ -76,7 +76,7 @@ jobs:
           GIT_CONFIG_GLOBAL: ${{ runner.temp }}/runtime-graph.gitconfig
         with:
           repository: omm-hippo/omm
-          ref: 1d18743ad88be77399d7b5ad7b9c80cb90d877f5
+          ref: 2f79dfa144299abcbe95d37daaf45e79072f8e1f
           path: .runtime-graph
           persist-credentials: false
       - name: Verify Formula against the pinned OMM runtime graph and PyPI hashes
