@@ -158,13 +158,16 @@ esac
         self.assertIn("if: github.event_name != 'repository_dispatch'", bump)
         self.assertIn("brew bump --no-fork --open-pr", bump)
 
-    def test_pull_requests_re_resolve_python_resources(self):
+    def test_pull_requests_validate_the_immutable_runtime_graph(self):
         workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text()
-        self.assertIn("Verify Formula Python resources match public PyPI metadata", workflow)
+        self.assertIn("Verify Formula against the pinned OMM runtime graph and PyPI hashes", workflow)
         self.assertIn('tap_root="$(brew --repository "$TAP_NAME")"', workflow)
-        self.assertIn("brew update-python-resources --print-only", workflow)
-        self.assertIn("--ignore-main-package-cooldown", workflow)
-        self.assertIn("verify_python_resources.py", workflow)
+        self.assertIn("ref: 2f79dfa144299abcbe95d37daaf45e79072f8e1f", workflow)
+        self.assertIn("GIT_CONFIG_GLOBAL: ${{ runner.temp }}/runtime-graph.gitconfig", workflow)
+        self.assertIn('homebrew_formula.py" check', workflow)
+        self.assertIn('--requirements "$GITHUB_WORKSPACE/.runtime-graph/requirements-npm-binary.txt"', workflow)
+        self.assertNotIn("--allow-version-lag", workflow)
+        self.assertIn('if: github.event_name == \'pull_request\' && matrix.os == \'ubuntu-latest\'', workflow)
 
 
 if __name__ == "__main__":
